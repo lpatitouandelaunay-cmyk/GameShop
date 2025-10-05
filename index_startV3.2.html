@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>GameShop Arcade V3.2</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rajdhani:wght@500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/x-icon" href="cache/image%20apt.ico">
+<style>
+/* Reset + layout */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;color:#fff;font-family:"Rajdhani",sans-serif;overflow:hidden}
+canvas{position:fixed;inset:0;z-index:0}
+
+/* Intro */
+#intro{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:#000;z-index:999;animation:fadeOut 3.5s ease-in-out forwards 2.5s}
+#intro img{width:150px;height:150px;border-radius:50%;filter:drop-shadow(0 0 35px #00ffb7);opacity:0;animation:logoIn 2s forwards}
+#intro h1{margin-top:20px;font-family:"Orbitron",sans-serif;color:#00ffb7;letter-spacing:2px;opacity:0;animation:textIn 2.5s forwards .8s}
+#skip-text{position:absolute;bottom:30px;color:#00ffb7;opacity:.7;font-size:1.05rem;text-shadow:0 0 10px #00ffb7;animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:.7}50%{opacity:.15}}
+@keyframes fadeOut{0%{opacity:1}70%{opacity:1}100%{opacity:0;visibility:hidden}}
+@keyframes logoIn{0%{opacity:0;transform:scale(.8)}100%{opacity:1;transform:scale(1)}}
+@keyframes textIn{0%{opacity:0}100%{opacity:1}}
+@keyframes showMain{to{opacity:1}}
+
+/* Main */
+#main{position:relative;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;opacity:0;animation:showMain 3.5s ease-in forwards 3.5s}
+h1.title{font-family:"Orbitron",sans-serif;font-size:44px;text-shadow:0 0 20px #00ffb7;margin:25px 0}
+
+/* Money / buttons / mute */
+.money-bar{position:absolute;top:25px;right:180px;display:flex;gap:20px;align-items:center;padding:8px 14px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);box-shadow:0 0 12px rgba(0,255,183,0.25)}
+.money-item{display:flex;align-items:center;gap:8px}
+.money-item img{width:26px;height:26px;filter:drop-shadow(0 0 6px rgba(0,255,183,0.8))}
+.money-value{color:#00ffb7;font-weight:700;font-size:18px;text-shadow:0 0 8px #00ffb7}
+.btn-container{position:absolute;top:110px;left:25px;display:flex;flex-direction:column;gap:10px}
+button{font-family:"Orbitron",sans-serif;padding:10px 18px;border-radius:12px;border:2px solid #ffaa00;background:rgba(255,170,0,0.08);color:#ffaa00;cursor:pointer;box-shadow:0 0 12px #ffaa00aa;transition:all .18s}
+button:hover{transform:scale(1.04)}
+.import-btn{border-color:#00ffb7;color:#00ffb7;background:rgba(0,255,183,0.06);box-shadow:0 0 12px #00ffb7aa}
+.export-btn{border-color:#00ccff;color:#00ccff;background:rgba(0,204,255,0.06);box-shadow:0 0 12px #00ccffaa}
+.move-btn{border-color:#ff00ff;color:#ff00ff;background:rgba(255,0,255,0.06);box-shadow:0 0 12px #ff00ffaa}
+.update-btn{border-color:#00ffb7;color:#00ffb7;background:rgba(0,255,183,0.06);box-shadow:0 0 12px #00ffb7aa}
+#mute-btn{position:absolute;top:25px;left:25px;width:50px;height:50px;border-radius:50%;border:2px solid #00ffb7;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:20;color:#00ffb7;font-size:22px}
+#mute-btn:hover{transform:scale(1.08);background:#00ffb7;color:#000}
+
+/* Games list */
+.content{display:flex;gap:80px;align-items:center;height:65vh}
+.list{display:flex;flex-direction:column;gap:14px;width:360px;height:100%;overflow-y:auto;scroll-behavior:smooth;padding-right:8px}
+.list::-webkit-scrollbar{width:8px}
+.list::-webkit-scrollbar-thumb{background:#00ffb7;border-radius:8px}
+.game{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,0.03);border:2px solid rgba(255,255,255,0.06);cursor:pointer;transition:all .18s}
+.game:hover,.game.active{transform:scale(1.03);box-shadow:0 0 12px #00ffb7;background:rgba(0,255,183,0.08);border-color:#00ffb7}
+.play-btn{border:2px solid #00ffb7;padding:6px 10px;border-radius:8px;background:transparent;color:#00ffb7;cursor:pointer;font-weight:700}
+.preview{width:400px;height:400px;border-radius:18px;background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 0 30px #00ffb7}
+.preview img{width:80%}
+
+/* Footer */
+footer{position:relative;z-index:10;display:flex;gap:30px;justify-content:center;padding:14px 0;color:#9fdfff}
+footer a{color:#00ffb7;text-decoration:none}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+
+<!-- INTRO -->
+<div id="intro" aria-hidden="false">
+  <img id="intro-logo" src="cache/image.png" onerror="this.src='cache/image%20apt.ico'" alt="Logo">
+  <h1>Initialisation de GameShop...</h1>
+  <div id="skip-text">Appuie 2x sur [ESPACE] pour passer</div>
+</div>
+
+<!-- sound prompt (autoplay blocked) -->
+<div id="sound-prompt" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:1000;background:rgba(0,0,0,.7);padding:10px 14px;border-radius:10px;">
+  <span style="color:#fff;margin-right:12px">Audio bloqué — cliquez pour activer</span>
+  <button id="enable-sound-btn" style="background:#00ffb7;border:none;padding:8px;border-radius:8px;cursor:pointer">Activer le son</button>
+</div>
+
+<!-- MUTE BUTTON -->
+<button id="mute-btn" title="Couper/déverrouiller le son">🔊</button>
+
+<!-- MAIN -->
+<div id="main" aria-hidden="true">
+  <div class="money-bar">
+    <div class="money-item"><img src="configurationpage/data/piece.png" alt="pièce"><div class="money-value" id="money">00</div></div>
+    <div class="money-item"><img src="configurationpage/data/jeton.png" alt="jeton"><div class="money-value" id="tokens">00</div></div>
+  </div>
+
+  <div class="btn-container">
+    <button class="update-btn" onclick="playSelect(()=>window.open('https://re8dk5.mimo.run/index.html','_blank'))">🧩 Mise à jour</button>
+    <button class="import-btn" onclick="playSelect(importerJSON)">📂 Importer JSON</button>
+    <button class="export-btn" onclick="playSelect(exporterJSON)">💾 Exporter JSON</button>
+    <button class="move-btn" onclick="playSelect(deplacerJSON)">📦 Déplacer JSON</button>
+  </div>
+
+  <h1 class="title">🎮 GameShop Arcade</h1>
+
+  <div class="content">
+    <div class="list" id="game-list" tabindex="0" aria-label="Liste des jeux">
+      <div class="game active" data-img="jeux/2048_game/image/2048.png" data-link="jeux/2048_game/index.html"><span>2048</span><button class="play-btn">Jouer</button></div>
+      <div class="game" data-img="jeux/DinoGame_Styled/image/dino.png" data-link="jeux/DinoGame_Styled/index.html"><span>Dino Game</span><button class="play-btn">Jouer</button></div>
+      <div class="game" data-img="jeux/Snake32_Styled 8bit/image/snake.png" data-link="jeux/Snake32_Styled 8bit/index_snake.html"><span>Snake 8bit</span><button class="play-btn">Jouer</button></div>
+      <div class="game" data-img="jeux/tetrisWeb/image/tetris.png" data-link="jeux/tetrisWeb/index_tetris.html"><span>Tetris</span><button class="play-btn">Jouer</button></div>
+      <div class="game" data-img="jeux/Puissance4/image/puissance4.png" data-link="jeux/Puissance4/index.html"><span>Puissance 4</span><button class="play-btn">Jouer</button></div>
+      <div class="game" data-img="jeux/Morpion/image/morpion.png" data-link="jeux/Morpion/index.html"><span>Morpion</span><button class="play-btn">Jouer</button></div>
+      <div class="game" data-img="jeux/roulette/image/casino.png" data-link="jeux/roulette/roulette.html"><span>Roulette</span><button class="play-btn">Jouer</button></div>
+      <div class="game" data-img="logiciel/draw/image/minou.png" data-link="logiciel/draw/draw.html"><span>Draw (Chat)</span><button class="play-btn">Jouer</button></div>
+    </div>
+
+    <div class="preview" aria-live="polite"><img id="preview-img" src="jeux/2048_game/image/2048.png" alt="aperçu du jeu"></div>
+  </div>
+
+  <footer>
+    <a href="https://github.com/lpatitouandelaunay-cmyk/GameShop" target="_blank">🌐 GitHub</a>
+    <a href="https://drive.google.com/drive/folders/1m-8LjnGOaHnxR20uClEmXmMMpbIOrxnA?usp=drive_link" target="_blank">☁️ Drive</a>
+    <a href="configurationpage/GameShopsuport.html">💬 Support</a>
+  </footer>
+</div>
+
+<!-- AUDIO -->
+<audio id="start-sound" src="configurationpage/data/homesound/start.mp3" preload="auto"></audio>
+<audio id="bg-music" src="configurationpage/data/homesound/musique.mp3" preload="auto" loop></audio>
+<audio id="sound-select" src="configurationpage/data/homesound/select.mp3" preload="auto"></audio>
+<audio id="sound-scroll" src="configurationpage/data/homesound/scrole.mp3" preload="auto"></audio>
+
+<script>
+/* ================= audio & autoplay handling ================= */
+const startSound = document.getElementById('start-sound');
+const bgMusic = document.getElementById('bg-music');
+const selectSound = document.getElementById('sound-select');
+const scrollSound = document.getElementById('sound-scroll');
+const soundPrompt = document.getElementById('sound-prompt');
+const enableSoundBtn = document.getElementById('enable-sound-btn');
+
+bgMusic.volume = 0.4;
+let isMuted = false;
+let autoplayBlocked = false;
+
+// Try autoplay start sound on load
+window.addEventListener('load', () => {
+  const p = startSound.play();
+  if (p !== undefined) {
+    p.then(()=> {
+      // autoplay succeeded
+      // schedule bg-music to start when intro ends (or if user skips)
+    }).catch(()=> {
+      // autoplay blocked -> show prompt
+      autoplayBlocked = true;
+      soundPrompt.style.display = 'flex';
+      // allow user gesture to enable
+      enableSoundBtn.addEventListener('click', enableAudio, {once:true});
+      document.addEventListener('click', enableAudio, {once:true});
+      document.addEventListener('keydown', enableAudio, {once:true});
+    });
+  }
+});
+
+function enableAudio(){
+  autoplayBlocked = false;
+  soundPrompt.style.display = 'none';
+  startSound.play().catch(()=>{});
+  if(!isMuted) bgMusic.play().catch(()=>{});
+}
+
+document.getElementById('mute-btn').addEventListener('click', ()=>{
+  isMuted = !isMuted;
+  if (isMuted) { bgMusic.pause(); document.getElementById('mute-btn').textContent = '🔈'; }
+  else { bgMusic.play().catch(()=>{}); document.getElementById('mute-btn').textContent = '🔊'; }
+});
+
+/* ================= intro skip (double SPACE) - robust ================= */
+let spaceTimes = [];
+function handleSpaceForSkip(){
+  const now = performance.now();
+  spaceTimes.push(now);
+  // keep last two presses
+  if(spaceTimes.length > 2) spaceTimes.shift();
+  if(spaceTimes.length === 2 && (spaceTimes[1] - spaceTimes[0]) < 500){
+    // double-tap detected
+    skipIntro();
+    spaceTimes = [];
+  }
+}
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    handleSpaceForSkip();
+    // prevent page from scrolling if needed
+    e.preventDefault();
+  }
+});
+
+/* skipIntro implementation */
+function skipIntro(){
+  const intro = document.getElementById('intro');
+  const main = document.getElementById('main');
+  if(!intro || intro.style.display === 'none') return;
+  intro.style.display = 'none';
+  main.style.opacity = '1';
+  // try to start background music if allowed
+  if(!isMuted) {
+    bgMusic.play().catch(()=>{ /* if blocked, nothing */ });
+  }
+}
+
+/* ================= particles background ================= */
+const canvas = document.getElementById('bg');
+const ctx = canvas.getContext('2d');
+let w,h,particles=[];
+function resize(){ w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+function createParticles(){
+  particles = [];
+  for(let i=0;i<120;i++){
+    particles.push({ x:Math.random()*w, y:Math.random()*h, size:Math.random()*2+0.5,
+      speedX:(Math.random()-0.5)*0.6, speedY:(Math.random()-0.5)*0.6,
+      color:`hsla(${Math.random()*360},100%,60%,0.7)` });
+  }
+}
+createParticles();
+function drawParticles(){
+  ctx.clearRect(0,0,w,h);
+  for(const p of particles){
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+    ctx.fillStyle = p.color;
+    ctx.shadowBlur = 20; ctx.shadowColor = p.color;
+    ctx.fill();
+    p.x += p.speedX; p.y += p.speedY;
+    if(p.x < 0 || p.x > w) p.speedX *= -1;
+    if(p.y < 0 || p.y > h) p.speedY *= -1;
+  }
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+/* ================= game list navigation (arrows + scroll) ================= */
+const games = Array.from(document.querySelectorAll('.game'));
+const preview = document.getElementById('preview-img');
+let current = 0;
+
+function updateSelection(i){
+  if(i < 0) i = 0;
+  if(i >= games.length) i = games.length - 1;
+  current = i;
+  games.forEach(g => g.classList.remove('active'));
+  games[i].classList.add('active');
+  const img = games[i].dataset.img;
+  if(img) preview.src = img;
+  // scroll item into center of visible list
+  games[i].scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function playScroll(){
+  if(isMuted) return;
+  try { scrollSound.currentTime = 0; scrollSound.play().catch(()=>{}); } catch {}
+}
+
+function playSelect(callback){
+  if(isMuted){ if(callback) callback(); return; }
+  const p = selectSound.play();
+  if (p !== undefined) {
+    p.then(()=> {
+      selectSound.onended = ()=> { if(callback) callback(); };
+    }).catch(()=> { if(callback) callback(); });
+  } else {
+    if(callback) callback();
+  }
+}
+
+/* mouse/keyboard bindings */
+games.forEach((g, idx) => {
+  g.addEventListener('mouseover', ()=> { updateSelection(idx); playScroll(); });
+  g.addEventListener('click', ()=> { playSelect(()=> window.location.href = g.dataset.link); });
+  const btn = g.querySelector('.play-btn');
+  if(btn){
+    btn.addEventListener('click', (ev)=> { ev.stopPropagation(); playSelect(()=> window.location.href = g.dataset.link); });
+  }
+});
+
+window.addEventListener('keydown', (e)=>{
+  // don't override space handling above
+  if (e.key === 'ArrowDown') { updateSelection((current+1) % games.length); playScroll(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { updateSelection((current-1 + games.length) % games.length); playScroll(); e.preventDefault(); }
+  else if (e.key === 'Enter') { playSelect(()=> window.location.href = games[current].dataset.link); e.preventDefault(); }
+});
+
+/* ================= JSON import/export/move (réutilisables) ================= */
+function importerJSON(){
+  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        document.getElementById('money').textContent = data.money ?? "00";
+        document.getElementById('tokens').textContent = data.tokens ?? "00";
+        alert('✅ Données importées');
+      } catch {
+        alert('❌ JSON invalide');
+      }
+    };
+    reader.readAsText(f);
+  };
+  input.click();
+}
+function exporterJSON(){
+  const data = { money: document.getElementById('money').textContent, tokens: document.getElementById('tokens').textContent, date: new Date().toLocaleString() };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'save_GameShop.json'; a.click(); URL.revokeObjectURL(a.href);
+  alert('💾 Données exportées');
+}
+function deplacerJSON(){
+  alert('📦 Pour déplacer ton JSON :\n1) Exécute ton script .bat\n2) Le fichier sera déplacé vers :\nC:\\Users\\TITOUAN.DELAUNAY\\Desktop\\GameShopV3.2\\configurationpage\\data\\');
+}
+
+/* ================= small helpers ================= */
+// if the intro animation finishes naturally, ensure bg-music starts
+// observe the intro element for animationend to start bg music
+const introEl = document.getElementById('intro');
+if(introEl){
+  introEl.addEventListener('animationend', (ev) => {
+    // animationend can fire multiple times; only care when intro actually faded out
+    if (getComputedStyle(introEl).visibility === 'hidden' || introEl.style.display === 'none') {
+      // already hidden
+      return;
+    }
+    // after fade out ends, hide it (CSS already does but ensure)
+    introEl.style.display = 'none';
+    document.getElementById('main').style.opacity = '1';
+    if(!isMuted) bgMusic.play().catch(()=>{});
+  });
+}
+
+/* ensure focusable list to receive keyboard if user clicked away */
+document.getElementById('game-list').addEventListener('focus', ()=> {}, false);
+
+/* Accessibility: if user clicks anywhere to enable audio when blocked, enableAudio handles it (set once) */
+enableSoundBtn && enableSoundBtn.addEventListener && enableSoundBtn.addEventListener('click', ()=>{ enableAudio(); });
+
+</script>
+</body>
+</html>
